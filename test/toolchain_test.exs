@@ -48,7 +48,7 @@ defmodule OpenAITritonTest do
     end
   end
 
-  test "core releases can move independently of Beaver" do
+  test "core releases support an alternative repository" do
     asset =
       OpenAITriton.core_asset!(
         triton_ref: "commit",
@@ -62,7 +62,23 @@ defmodule OpenAITritonTest do
   end
 
   test "pinned core assets carry their checksum without applying it to replacement archives" do
-    asset = OpenAITriton.core_asset!(asset_os: "macos", asset_arch: "arm64")
+    ref = OpenAITriton.metadata()["triton_ref"]
+    id = OpenAITriton.metadata()["core_repository_id"]
+    name = "triton-#{ref}-macos-arm64.tar.gz"
+
+    fetch = fn url ->
+      assert url ==
+               "https://api.github.com/repositories/#{id}/releases/tags/triton-prebuilt-#{ref}"
+
+      %{
+        "assets" => [
+          %{"name" => name, "browser_download_url" => "https://example.com/core.tar.gz"}
+        ]
+      }
+    end
+
+    asset = OpenAITriton.core_asset!(asset_os: "macos", asset_arch: "arm64", fetch_json: fetch)
+    assert asset.url == "https://example.com/core.tar.gz"
     assert asset.sha256 == "e2ae3dfcf14e5a960c21c407d791aca84b88d0d90ad19a34b5174021221b3a6b"
 
     replacement =
@@ -76,11 +92,31 @@ defmodule OpenAITritonTest do
 
     output =
       capture_io(fn ->
-        OpenAITriton.run(["--resolve-only", "--asset-os", "macos", "--asset-arch", "arm64"])
+        OpenAITriton.run([
+          "--resolve-only",
+          "--asset-os",
+          "macos",
+          "--asset-arch",
+          "arm64",
+          "--repo",
+          "example/triton",
+          "--sha256",
+          asset.sha256
+        ])
       end)
 
     assert output =~ "TRITON_CORE_SHA256=#{asset.sha256}"
     refute output =~ "LLVM_EUDSL_SHA256="
+  end
+
+  test "a default release must contain the requested platform artifact" do
+    assert_raise Mix.Error, ~r/has no asset named/, fn ->
+      OpenAITriton.core_asset!(
+        asset_os: "macos",
+        asset_arch: "arm64",
+        fetch_json: fn _ -> %{"assets" => []} end
+      )
+    end
   end
 
   @tag :tmp_dir
