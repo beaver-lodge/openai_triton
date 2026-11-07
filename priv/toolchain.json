@@ -1,0 +1,8 @@
+{
+  "triton_ref": "f8cddb947b471d6902a39f62d0894d1e552e5e75",
+  "core_repo": "beaver-lodge/beaver",
+  "sha256": {
+    "macos-arm64": "e2ae3dfcf14e5a960c21c407d791aca84b88d0d90ad19a34b5174021221b3a6b",
+    "ubuntu-x86_64": "0579bcddd42f663b900e22b4da49ae70761d7e49e625265e98187f5d1acf9290"
+  }
+}
