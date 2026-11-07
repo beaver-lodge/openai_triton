@@ -9,8 +9,7 @@ defmodule OpenAITriton.MixProject do
       description: "Triton compiler toolchain installation and native core builds",
       package: [
         links: %{
-          "Upstream" => "https://github.com/triton-lang/triton",
-          "GitHub" => "https://github.com/beaver-lodge/openai_triton"
+          "Upstream" => "https://github.com/triton-lang/triton"
         },
         licenses: ["MIT"],
         files: ["lib", "priv", "mix.exs", ".formatter.exs", "README.md", "LICENSE"]

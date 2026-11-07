@@ -51,23 +51,42 @@ defmodule OpenAITriton do
           Mix.raise("no Triton core prebuilt for #{inspect(platform)}; use --llvm-only for LLVM")
       end
 
-    repo = opts[:repo] || metadata()["core_repo"]
     name = opts[:asset_name] || "triton-#{ref}-#{suffix}.tar.gz"
 
     pinned? =
-      ref == metadata()["triton_ref"] and repo == metadata()["core_repo"] and
+      ref == metadata()["triton_ref"] and is_nil(opts[:repo]) and
         is_nil(opts[:asset_url]) and is_nil(opts[:asset_name])
 
     checksum = opts[:sha256] || if(pinned?, do: metadata()["sha256"][suffix])
 
     %{
       name: name,
-      url:
-        opts[:asset_url] ||
-          "https://github.com/#{repo}/releases/download/triton-prebuilt-#{ref}/#{name}",
+      url: core_url!(opts, ref, name),
       sha256: checksum,
       triton_ref: ref
     }
+  end
+
+  defp core_url!(opts, ref, name) do
+    cond do
+      opts[:asset_url] ->
+        opts[:asset_url]
+
+      opts[:repo] ->
+        "https://github.com/#{opts[:repo]}/releases/download/triton-prebuilt-#{ref}/#{name}"
+
+      true ->
+        fetch = opts[:fetch_json] || (&MLIR.Toolchain.github_get!(&1, opts[:github_token]))
+        id = metadata()["core_repository_id"]
+
+        release =
+          fetch.("https://api.github.com/repositories/#{id}/releases/tags/triton-prebuilt-#{ref}")
+
+        case Enum.find(release["assets"] || [], &(&1["name"] == name)) do
+          %{"browser_download_url" => url} when is_binary(url) -> url
+          _ -> Mix.raise("core release #{ref} has no asset named #{name}")
+        end
+    end
   end
 
   def install_core!(asset, opts) do
@@ -103,6 +122,8 @@ defmodule OpenAITriton do
           asset_arch: "LLVM_EUDSL_ASSET_ARCH",
           sha256: if(opts[:llvm_only], do: "LLVM_EUDSL_SHA256", else: "TRITON_CORE_SHA256"),
           github_env: "GITHUB_ENV",
+          github_token: "GH_TOKEN",
+          github_token: "GITHUB_TOKEN",
           install_dir: if(opts[:llvm_only], do: "LLVM_PREBUILT_DIR", else: "TRITON_PREBUILT_DIR")
         ],
         opts,
